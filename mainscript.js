@@ -1,12 +1,25 @@
-let keySequence = ['o', 's', 'a', 'd', 'm', 'i', 'n'];
-let currentIndex = 0;
+// mainscript.js
+import { db, auth } from './firebase-config.js';
+import { collection, getDocs, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
 
-document.addEventListener('keydown', function (event) {
-  if (event.key.toLowerCase() === keySequence[currentIndex]) {
+const loginModal = document.getElementById('loginModal');
+const loginBtn = document.getElementById('loginBtn');
+const closeModal = document.getElementById('closeModal');
+const blogSection = document.getElementById('blogSection');
+
+let floatingAddButton = null;
+let floatingLogoutButton = null;
+let floatingDeleteAllButton = null;
+
+// Sekwencja klawiszy "osadmin" otwiera modal logowania
+const keySequence = ['o', 's', 'a', 'd', 'm', 'i', 'n'];
+let currentIndex = 0;
+document.addEventListener('keydown', (event) => {
+  if(event.key.toLowerCase() === keySequence[currentIndex]) {
     currentIndex++;
-    if (currentIndex === keySequence.length) {
-      const modal = document.getElementById('loginModal');
-      if (modal) modal.style.display = 'flex';
+    if(currentIndex === keySequence.length) {
+      loginModal.style.display = 'flex';
       currentIndex = 0;
     }
   } else {
@@ -14,172 +27,221 @@ document.addEventListener('keydown', function (event) {
   }
 });
 
-document.addEventListener("DOMContentLoaded", function () {
-  const loginModal = document.getElementById('loginModal');
-  const loginBtn = document.getElementById('loginBtn');
-  const closeModal = document.getElementById('closeModal');
-  const blogSection = document.getElementById('blogSection');
-
-  if (closeModal) {
-    closeModal.addEventListener('click', () => {
-      loginModal.style.display = 'none';
-    });
-  }
-
-  if (loginBtn) {
-    loginBtn.addEventListener('click', () => {
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-
-      if (username === 'admin' && password === 'admin123') {
-        localStorage.setItem('loggedIn', 'true');
-        if (!window.location.href.includes('blog.html')) {
-          window.location.href = 'blog.html';
-        } else {
-          loginModal.style.display = 'none';
-          showAddButton();
-        }
-      } else {
-        alert('Błędne dane logowania');
-      }
-    });
-  }
-
-  function showAddButton() {
-    if (document.getElementById('floatingAddButton')) return;
-
-    const buttonAdd = document.createElement('button');
-    buttonAdd.id = 'floatingAddButton';
-    buttonAdd.textContent = 'Dodaj';
-    Object.assign(buttonAdd.style, {
-      position: 'fixed',
-      bottom: '20px',
-      right: '20px',
-      padding: '10px 20px',
-      background: '#333',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      zIndex: '1001'
-    });
-
-    const buttonDeleteAll = document.createElement('button');
-    buttonDeleteAll.id = 'floatingDeleteAllButton';
-    buttonDeleteAll.textContent = 'Usuń wszystkie';
-    Object.assign(buttonDeleteAll.style, {
-      position: 'fixed',
-      bottom: '70px',
-      right: '20px',
-      padding: '10px 20px',
-      background: '#e74c3c',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      zIndex: '1001'
-    });
-
-    buttonAdd.addEventListener('click', () => {
-      const newPost = document.createElement('div');
-      newPost.classList.add('post');
-      const date = new Date().toISOString().split('T')[0];
-
-      newPost.innerHTML = `
-        <div class="post-thumbnail">
-          <label style="cursor:pointer;">
-            <img src="placeholder.jpg" alt="Kliknij, aby dodać obraz" style="max-width: 300px;" />
-            <input type="file" accept="image/*" style="display:none;" />
-          </label>
-        </div>
-        <div class="post-content">
-          <div class="post-title" contenteditable="true">Kliknij, aby edytować tytuł</div>
-          <p contenteditable="true">Kliknij, aby edytować treść...</p>
-          <div style="margin-top:10px;">
-            <button class="savePostBtn">Zapisz</button>
-          </div>
-        </div>
-      `;
-
-      const fileInput = newPost.querySelector('input[type="file"]');
-      const image = newPost.querySelector('img');
-      fileInput.addEventListener('change', function () {
-        const file = this.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function (e) {
-            image.src = e.target.result;
-          };
-          reader.readAsDataURL(file);
-        }
-      });
-
-      const saveBtn = newPost.querySelector('.savePostBtn');
-      saveBtn.addEventListener('click', () => {
-        const title = newPost.querySelector('.post-title').innerHTML;
-        const content = newPost.querySelector('p').innerHTML;
-        const imgSrc = newPost.querySelector('img').src;
-        const date = new Date().toISOString().split('T')[0];
-
-        const savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
-        savedPosts.unshift({ title, content, imgSrc, date });
-        localStorage.setItem('savedPosts', JSON.stringify(savedPosts));
-        alert("Zapisano artykuł");
-        location.reload(); // przeładuj stronę, aby od razu wczytać kafelek
-      });
-
-      blogSection?.prepend(newPost);
-    });
-
-    buttonDeleteAll.addEventListener('click', () => {
-      localStorage.setItem('savedPosts', '[]');
-      blogSection.innerHTML = '';
-      alert("Wszystkie artykuły zostały usunięte");
-    });
-
-    document.body.appendChild(buttonAdd);
-    document.body.appendChild(buttonDeleteAll);
-  }
-
-function loadPosts() {
-  const savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
-
-  savedPosts.forEach(post => {
-    const newPost = document.createElement('div');
-    newPost.classList.add('post');
-    newPost.style.cursor = 'pointer';
-
-    newPost.innerHTML = `
-      <div class="post-thumbnail">
-        <img src="${post.imgSrc}" alt="Miniaturka" class="thumbnail-image" />
-      </div>
-      <div class="post-content">
-        <div class="post-title">${post.title}</div>
-        <p class="post-date">${post.date}</p>
-      </div>
-    `;
-
-    newPost.addEventListener('click', () => {
-      localStorage.setItem('currentPost', JSON.stringify(post));
-      window.location.href = 'post1.html';
-    });
-
-    if (blogSection) blogSection.appendChild(newPost);
+if(closeModal) {
+  closeModal.addEventListener('click', () => {
+    loginModal.style.display = 'none';
   });
 }
 
+// Logowanie przez Firebase Auth
+if(loginBtn) {
+  loginBtn.addEventListener('click', () => {
+    const email = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
 
-  if (localStorage.getItem('loggedIn') === 'true' && window.location.href.includes('blog.html')) {
-    showAddButton();
+    signInWithEmailAndPassword(auth, email, password)
+      .then(() => {
+        loginModal.style.display = 'none';
+      })
+      .catch(error => {
+        alert('Błędne dane logowania: ' + error.message);
+      });
+  });
+}
+
+// Wyświetlanie przycisku "Dodaj", "Wyloguj" i "Usuń wszystkie"
+function showAdminButtons() {
+  if(floatingAddButton || floatingLogoutButton || floatingDeleteAllButton) return;
+
+  floatingAddButton = document.createElement('button');
+  floatingAddButton.textContent = 'Dodaj';
+  Object.assign(floatingAddButton.style, {
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    padding: '10px 20px',
+    background: '#333',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    zIndex: '1001'
+  });
+
+  floatingLogoutButton = document.createElement('button');
+  floatingLogoutButton.textContent = 'Wyloguj';
+  Object.assign(floatingLogoutButton.style, {
+    position: 'fixed',
+    bottom: '70px',
+    right: '20px',
+    padding: '10px 20px',
+    background: '#e74c3c',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    zIndex: '1001'
+  });
+
+  floatingDeleteAllButton = document.createElement('button');
+  floatingDeleteAllButton.textContent = 'Usuń wszystkie';
+  Object.assign(floatingDeleteAllButton.style, {
+    position: 'fixed',
+    bottom: '120px',
+    right: '20px',
+    padding: '10px 20px',
+    background: '#c0392b',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    zIndex: '1001'
+  });
+
+  document.body.appendChild(floatingAddButton);
+  document.body.appendChild(floatingLogoutButton);
+  document.body.appendChild(floatingDeleteAllButton);
+
+  floatingAddButton.addEventListener('click', showAddArticleForm);
+  floatingLogoutButton.addEventListener('click', () => signOut(auth));
+  floatingDeleteAllButton.addEventListener('click', deleteAllArticles);
+}
+
+// Usuń wszystkie artykuły
+async function deleteAllArticles() {
+  if (!confirm('Czy na pewno chcesz usunąć wszystkie artykuły?')) return;
+  try {
+    const q = query(collection(db, "articles"));
+    const querySnapshot = await getDocs(q);
+    const deletions = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletions);
+    alert('Wszystkie artykuły zostały usunięte.');
+    loadArticles();
+  } catch (error) {
+    alert('Błąd przy usuwaniu: ' + error.message);
   }
+}
 
-  loadPosts();
+// Formularz dodawania artykułu
+function showAddArticleForm() {
+  if(document.getElementById('articleForm')) return;
 
-  const postContent = currentPost.content.replace(/\n/g, '<br>');
-document.getElementById('articleContent').innerHTML = postContent;
+  const form = document.createElement('div');
+  form.id = 'articleForm';
+  form.style.cssText = `
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: #fff; padding: 20px; border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3); z-index: 2000; width: 320px;
+  `;
 
-document.getElementById('backButton').addEventListener('click', () => {
-  window.location.href = 'blog.html';
+  form.innerHTML = `
+    <h3>Dodaj nowy artykuł</h3>
+    <input type="text" id="titleInput" placeholder="Tytuł" style="width: 100%; margin-bottom: 10px;" />
+    <input type="date" id="dateInput" style="width: 100%; margin-bottom: 10px;" />
+    <input type="text" id="thumbInput" placeholder="Link do miniaturki" style="width: 100%; margin-bottom: 10px;" />
+    <textarea id="contentInput" placeholder="Treść artykułu" style="width: 100%; height: 100px; margin-bottom: 10px;"></textarea>
+    <button id="saveArticleBtn" style="margin-right: 10px;">Zapisz</button>
+    <button id="cancelArticleBtn">Anuluj</button>
+  `;
+
+  document.body.appendChild(form);
+
+  document.getElementById('cancelArticleBtn').addEventListener('click', () => {
+    form.remove();
+  });
+
+  document.getElementById('saveArticleBtn').addEventListener('click', async () => {
+    const title = document.getElementById('titleInput').value.trim() || 'Brak tytułu';
+    const date = document.getElementById('dateInput').value || new Date().toISOString().split('T')[0];
+    const thumb = document.getElementById('thumbInput').value.trim() || 'https://via.placeholder.com/400x200?text=Brak+miniaturki';
+    const content = document.getElementById('contentInput').value.trim() || 'Brak treści';
+
+    const post = document.createElement('div');
+    post.classList.add('post');
+    post.style.margin = '20px';
+    post.style.border = '1px solid #ccc';
+    post.style.padding = '15px';
+    post.style.borderRadius = '8px';
+    post.style.boxShadow = '0 0 5px rgba(0,0,0,0.1)';
+
+    post.innerHTML = `
+      <div class="post-thumbnail" style="margin-bottom: 10px;">
+        <img src="${thumb}" alt="Miniaturka" style="max-width: 100%; height: auto; border-radius: 6px;" />
+      </div>
+      <h2>${title}</h2>
+      <p><em>${date}</em></p>
+      <p>${content}</p>
+    `;
+
+    blogSection.prepend(post);
+
+    try {
+      await addDoc(collection(db, "articles"), {
+        title,
+        date,
+        imgSrc: thumb,
+        content
+      });
+      alert('Artykuł został dodany!');
+      document.getElementById('articleForm').remove();
+    } catch (e) {
+      alert('Błąd przy zapisie artykułu: ' + e.message);
+      console.error(e);
+      post.remove();
+    }
+  });
+}
+
+// Ładowanie artykułów
+async function loadArticles() {
+  blogSection.innerHTML = 'Ładowanie...';
+
+  try {
+    const q = query(collection(db, "articles"), orderBy('date', 'desc'));
+    const querySnapshot = await getDocs(q);
+
+    blogSection.innerHTML = '';
+
+    querySnapshot.forEach(doc => {
+      const data = doc.data();
+      const post = document.createElement('div');
+      post.classList.add('post');
+      post.style.margin = '20px';
+      post.style.border = '1px solid #ccc';
+      post.style.padding = '15px';
+      post.style.borderRadius = '8px';
+      post.style.boxShadow = '0 0 5px rgba(0,0,0,0.1)';
+
+      post.innerHTML = `
+        <div class="post-thumbnail" style="margin-bottom: 10px;">
+          <img src="${data.imgSrc}" alt="Miniaturka" style="max-width: 100%; height: auto; border-radius: 6px;" />
+        </div>
+        <h2>${data.title}</h2>
+        <p><em>${data.date}</em></p>
+        <p>${data.content}</p>
+      `;
+
+      blogSection.appendChild(post);
+    });
+
+    if (querySnapshot.empty) {
+      blogSection.textContent = 'Brak artykułów do wyświetlenia.';
+    }
+  } catch (e) {
+    blogSection.textContent = 'Błąd przy ładowaniu artykułów: ' + e.message;
+  }
+}
+
+// Obsługa stanu logowania
+onAuthStateChanged(auth, (user) => {
+  if(user) {
+    showAdminButtons();
+  } else {
+    if(floatingAddButton) floatingAddButton.remove(), floatingAddButton = null;
+    if(floatingLogoutButton) floatingLogoutButton.remove(), floatingLogoutButton = null;
+    if(floatingDeleteAllButton) floatingDeleteAllButton.remove(), floatingDeleteAllButton = null;
+  }
 });
 
-});
+// Start
+loadArticles();
