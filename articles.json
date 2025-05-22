@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Pierwszy wpis",
+    "date": "2025-05-22",
+    "thumbnail": "thumb1.jpg",
+    "content": "To jest treść mojego pierwszego artykułu."
+  },
+  {
+    "title": "Drugi wpis",
+    "date": "2025-05-23",
+    "thumbnail": "thumb2.jpg",
+    "content": "To jest treść drugiego artykułu."
+  }
+  
+]
